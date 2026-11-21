@@ -67,6 +67,7 @@ async function attach() {
       forwardedPort = adb("forward", "tcp:0", `localabstract:${socket}`);
       browser = await chromium.connectOverCDP(
         `http://127.0.0.1:${forwardedPort}`,
+        { noDefaults: true },
       );
       const context = browser.contexts()[0];
       const page = context.pages()[0] ?? (await context.waitForEvent("page"));
