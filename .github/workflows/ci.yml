@@ -1,0 +1,53 @@
+name: Verify campus platform
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: campus
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: campus
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U campus" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+        env:
+          TEST_DATABASE_URL: postgresql://campus:test-only@localhost:5432/campus
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results
+          path: test-results
+  android-template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+      - run: npm ci && npm run build
+      - run: node --import tsx scripts/prepare-android.ts --demo
+      - run: gradle --no-daemon -p android assembleDebug lintDebug

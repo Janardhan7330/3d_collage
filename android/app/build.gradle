@@ -1,0 +1,31 @@
+plugins { id 'com.android.application' }
+def campus = new Properties()
+def campusFile = rootProject.file('campus-build.properties')
+if (campusFile.exists()) campusFile.withInputStream { campus.load(it) }
+
+android {
+    namespace 'com.campus.navigator'
+    compileSdk 35
+    defaultConfig {
+        applicationId providers.gradleProperty('campusPackage').getOrElse(campus.getProperty('applicationId', 'com.campus.navigator.preview'))
+        minSdk 26
+        targetSdk 35
+        versionCode providers.gradleProperty('campusVersion').getOrElse(campus.getProperty('versionCode', '1')).toInteger()
+        versionName providers.gradleProperty('campusVersion').getOrElse(campus.getProperty('versionCode', '1'))
+    }
+    signingConfigs {
+        release {
+            if (System.getenv('ANDROID_KEYSTORE')) {
+                storeFile file(System.getenv('ANDROID_KEYSTORE'))
+                storePassword System.getenv('ANDROID_STORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release { signingConfig signingConfigs.release; minifyEnabled false }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies { implementation 'androidx.webkit:webkit:1.12.1' }

@@ -1,0 +1,39 @@
+services:
+  database:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_USER: campus
+      POSTGRES_DB: campus
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U campus -d campus]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://campus:${POSTGRES_PASSWORD}@database:5432/campus
+      APP_ORIGIN: ${APP_ORIGIN:?Set HTTPS APP_ORIGIN}
+      TRUST_PROXY_HOPS: 1
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      APK_BUILDS_ENABLED: ${APK_BUILDS_ENABLED:-false}
+      ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts:ro
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:3001:3001
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+volumes:
+  database:
+  artifacts:

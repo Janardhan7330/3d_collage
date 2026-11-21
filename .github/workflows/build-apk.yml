@@ -1,0 +1,66 @@
+name: Build campus APK
+on:
+  workflow_dispatch:
+    inputs:
+      campus_file:
+        description: "Campus JSON path in this checkout; leave blank for the fictional demo. Use a private repository for private maps."
+        required: false
+        default: ""
+      variant:
+        description: "Debug for testing, release for your configured signing identity"
+        type: choice
+        options: [debug, release]
+        default: debug
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+      - run: npm ci && npm run check
+      - name: Prepare verified campus assets
+        env:
+          CAMPUS_FILE: ${{ inputs.campus_file }}
+        run: node --import tsx scripts/prepare-android.ts "$CAMPUS_FILE"
+      - name: Debug APK
+        if: inputs.variant == 'debug'
+        run: gradle --no-daemon -p android assembleDebug lintDebug
+      - name: Signed release APK
+        if: inputs.variant == 'release'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${KEYSTORE_BASE64:?Configure Android signing secrets}"
+          : "${ANDROID_STORE_PASSWORD:?Configure Android signing secrets}"
+          : "${ANDROID_KEY_ALIAS:?Configure Android signing secrets}"
+          : "${ANDROID_KEY_PASSWORD:?Configure Android signing secrets}"
+          umask 077
+          export ANDROID_KEYSTORE="$RUNNER_TEMP/campus-release.jks"
+          trap 'rm -f "$ANDROID_KEYSTORE"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE"
+          gradle --no-daemon -p android assembleRelease lintRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: campus-${{ inputs.variant }}-apk
+          path: android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14

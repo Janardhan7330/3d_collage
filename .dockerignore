@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.env
+.env.*
+data
+artifacts
+test-results
+playwright-report
+android/.gradle
+android/**/build
+*.jks
+*.keystore
+
+docs/reference-chat.md
+android/campus-build.properties
+android/app/src/main/assets
