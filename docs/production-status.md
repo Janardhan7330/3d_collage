@@ -13,7 +13,7 @@ This system is under development. It is not certified production-ready and has n
 | 3D | Irregular/circular footprints, floor filters, location markers, route highlighting | Large-campus/device performance validation; measured detailed assets |
 | Satellite | Online Google satellite reference link at campus origin | Embedded authorized API if required; API key/provider setup |
 | Publishing | Validation, explicit confirmation, immutable revisions, restore, JSON exports | On-site approval and accuracy evidence |
-| Android | Offline runtime/template, per-project package ID, queue/worker and external signing configuration | Production signing identity and device install; physical airplane-mode tests (worker signed-build test passed with a throwaway key) |
+| Android | Offline runtime/template, per-project package ID, queue/worker, external signing configuration; Android 15 emulator install/offline routing/camera denial verified | Production signing identity and physical-device install; physical airplane-mode tests (worker signed-build test passed with a throwaway key) |
 | Operations | PostgreSQL, Docker/Compose, CI definition, health checks, graceful shutdown, backup/restore scripts, shared limits | Cloud/domain/TLS/mail setup, secrets, monitoring, artifact storage, load tests, full operational recovery drill (isolated database backup/restore passed) |
 
 The source master specification was truncated during section 15. Reconcile missing text before claiming complete coverage.

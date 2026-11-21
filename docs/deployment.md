@@ -53,3 +53,16 @@ The repository contains automatic application/Android checks and a manual **Buil
 Release builds require repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Keep ownership and backups of your signing key. This repository is public: never commit private campus maps, student information, passwords or keys.
 
 GitHub stores source and runs checks/builds. GitHub Pages cannot host this application’s persistent API, PostgreSQL database or Android worker. A separate server deployment is still required for live phone capture and shared accounts.
+
+## Installed Android verification
+
+The Android CI job boots an Android 15 emulator, installs the fictional debug APK, disables Wi-Fi/mobile data and enables airplane mode before launching it. It checks local 3D assets, destination search, ordinary and step-free routes, campus checkpoint validation, native camera denial with manual-entry fallback, and another process cold start. The run uploads its report and route screenshot as `android-device-evidence`; failures include device logs.
+
+To repeat on a disposable emulator, build the demo APK and run:
+
+```sh
+ANDROID_HOME=/path/to/android-sdk ANDROID_SERIAL=emulator-5554 \
+  node --import tsx scripts/verify-android.ts android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+This script deliberately refuses physical-device serials. It installs the demo and changes emulator radio settings, restoring the previous settings when it exits. It needs Android build tools 35.0.0 and a debug WebView. It does not establish physical camera reliability or campus accuracy.
