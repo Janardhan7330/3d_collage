@@ -54,3 +54,22 @@ jobs:
       - run: npm ci && npm run build
       - run: node --import tsx scripts/prepare-android.ts --demo
       - run: gradle --no-daemon -p android assembleDebug lintDebug
+      - name: Enable emulator acceleration
+        run: sudo chmod a+rw /dev/kvm
+      - name: Verify installed app without network
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          ram-size: 2048M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated
+          script: ANDROID_SERIAL=emulator-5554 node --import tsx scripts/verify-android.ts android/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-device-evidence
+          path: data/verification/android-device
+          if-no-files-found: warn
+          retention-days: 14
