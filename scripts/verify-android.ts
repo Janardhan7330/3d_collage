@@ -52,7 +52,13 @@ const previousWifi = adb("shell", "settings", "get", "global", "wifi_on");
 const previousData = adb("shell", "settings", "get", "global", "mobile_data");
 async function attach() {
   for (let attempt = 0; attempt < 45; attempt++) {
-    const pid = adb("shell", "pidof", packageId!);
+    let pid: string;
+    try {
+      pid = adb("shell", "pidof", packageId!);
+    } catch {
+      await delay(1000);
+      continue;
+    }
     const sockets = adb("shell", "cat", "/proc/net/unix");
     const socket = sockets.match(
       new RegExp(`@(webview_devtools_remote_${pid})\\b`),
@@ -95,6 +101,7 @@ try {
     "shell",
     "am",
     "start",
+    "-W",
     "-n",
     `${packageId}/com.campus.navigator.MainActivity`,
   );
@@ -177,6 +184,7 @@ try {
     "shell",
     "am",
     "start",
+    "-W",
     "-n",
     `${packageId}/com.campus.navigator.MainActivity`,
   );
@@ -203,6 +211,29 @@ try {
     ),
   );
   console.log(`Passed ${checks.length} Android checks. Evidence: ${evidence}`);
+} catch (error) {
+  const logcat = adb("logcat", "-d", "-t", "500");
+  await writeFile(resolve(evidence, "logcat.txt"), logcat);
+  await writeFile(
+    resolve(evidence, "verification.json"),
+    JSON.stringify(
+      {
+        verifiedAt: new Date().toISOString(),
+        status: "failed",
+        checks,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      null,
+      2,
+    ),
+  );
+  console.error(
+    logcat
+      .split("\n")
+      .filter((line) => /AndroidRuntime|chromium|FATAL|Exception/.test(line))
+      .join("\n"),
+  );
+  throw error;
 } finally {
   await browser?.close().catch(() => {});
   if (forwardedPort) adb("forward", "--remove", `tcp:${forwardedPort}`);
