@@ -24,12 +24,12 @@ import {
 import QRCode from "qrcode";
 import { api } from "./api";
 import { LazyMapView as MapView } from "./LazyMapView";
+import type { PhoneConnection } from "../shared/phone-connection";
 import { Capture } from "./Capture";
 import { CheckpointPrint } from "./CheckpointPrint";
 import { draftOutdoorWalk, type ProcessingReport } from "../shared/processing";
 import {
   emptyMap,
-  sampleMap,
   mapSchema,
   route as findRoute,
   validateMap,
@@ -712,6 +712,7 @@ function Studio({
       ProcessingReport["loopCandidates"]
     >([]),
     [metadata, setMetadata] = useState(false);
+  const [phone, setPhone] = useState<PhoneConnection | null>(null);
   const [originModal, setOriginModal] = useState(false);
   const [checkpointRevision, setCheckpointRevision] = useState<string | null>(
     null,
@@ -748,6 +749,15 @@ function Studio({
   };
   useEffect(() => {
     void perform(refreshDetails);
+    void api("/health")
+      .then((health) => setPhone(health.phoneConnection))
+      .catch(() =>
+        setPhone({
+          available: false,
+          reason:
+            "Connection check failed. Reload the studio before connecting a phone.",
+        }),
+      );
   }, []);
   useEffect(() => {
     onProjectChange(project);
@@ -875,6 +885,19 @@ function Studio({
       </nav>
       {tab === "map" && (
         <>
+          {!map.nodes.length && (
+            <section className="panel">
+              <h2>Start with your own campus</h2>
+              <p>
+                Your campus is empty. Connect your phone, start at your actual
+                gate or entrance, and save your own location names as you walk.
+                Review the recorded paths before publishing.
+              </p>
+              <p>
+                No example buildings, rooms or paths are added to your project.
+              </p>
+            </section>
+          )}
           <div className="map-toolbar">
             <div className="row">
               <span className="pill">3D campus</span>
@@ -925,17 +948,9 @@ function Studio({
                 · Positions require on-site confirmation
               </span>
             </div>
-            {!map.nodes.length && canEdit && (
-              <button
-                className="text-button"
-                onClick={() => {
-                  update(sampleMap());
-                  setNotice(
-                    "Example campus loaded. This is fictional geometry; every location and path remains unconfirmed.",
-                  );
-                }}
-              >
-                Explore circular campus example <ArrowUpRight size={16} />
+            {!map.nodes.length && canMap && (
+              <button className="primary" onClick={() => setTab("capture")}>
+                <Smartphone size={17} /> Map my campus with my phone
               </button>
             )}
           </div>
@@ -1304,13 +1319,22 @@ function Studio({
                   publishing
                 </li>
               </ul>
+              {!phone?.available && (
+                <p className="notice" role="status">
+                  {phone?.reason ?? "Checking phone connection…"}
+                </p>
+              )}
               {canMap && (
                 <button
                   className="primary"
-                  disabled={busy}
+                  disabled={busy || !phone?.available}
                   onClick={() =>
                     void perform(async () => {
                       const p = await api(`${base}/mapping`, "POST", {});
+                      if (!p.url)
+                        throw new Error(
+                          "Open the studio through its HTTPS phone-testing link first.",
+                        );
                       setPair(p);
                       setQr(
                         await QRCode.toDataURL(p.url, {
@@ -1357,8 +1381,16 @@ function Studio({
                   <div className="pair-placeholder">
                     <Smartphone size={58} strokeWidth={1} />
                   </div>
-                  <h3>Ready when you are.</h3>
-                  <p>Generate a QR code to connect your phone.</p>
+                  <h3>
+                    {phone?.available
+                      ? "Connect your phone to this campus"
+                      : "Phone connection is not ready"}
+                  </h3>
+                  <p>
+                    {phone?.available
+                      ? "Generate a QR code, scan it with your phone’s camera, and open the link in Safari or Chrome."
+                      : "Use the HTTPS phone-testing link on this computer. Then generate a fresh QR code here."}
+                  </p>
                 </>
               )}
             </div>
@@ -1393,6 +1425,7 @@ function Studio({
                 {canMap && s.status !== "finished" && (
                   <button
                     className="inline-button"
+                    disabled={!phone?.available}
                     onClick={() =>
                       void perform(async () => {
                         const next = await api(
@@ -1400,6 +1433,10 @@ function Studio({
                           "POST",
                           {},
                         );
+                        if (!next.url)
+                          throw new Error(
+                            "Open the studio through its HTTPS phone-testing link first.",
+                          );
                         setPair(next);
                         setQr(
                           await QRCode.toDataURL(next.url, {

@@ -6,6 +6,13 @@ test("create a campus, inspect its circular map, save, publish and export", asyn
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
+  const html = await (await page.request.get("/")).text();
+  const asset = html.match(/src="([^" ]+\.js)"/)?.[1];
+  expect(asset).toBeTruthy();
+  const compressed = await page.request.get(asset!, {
+    headers: { "Accept-Encoding": "gzip" },
+  });
+  expect(compressed.headers()["content-encoding"]).toBe("gzip");
   await page.goto("/");
   await page
     .getByRole("button", { name: "New here? Create an account" })
@@ -34,16 +41,48 @@ test("create a campus, inspect its circular map, save, publish and export", asyn
   await page
     .getByRole("button", { name: "Create campus", exact: true })
     .click();
+  await expect(
+    page.getByRole("heading", { name: "Start with your own campus" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("0 locations · 0 connections", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Explore circular campus example" }),
+  ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Explore circular campus example" })
+    .getByRole("button", { name: "Map my campus with my phone" })
     .click();
   await expect(
-    page.getByText("Example campus loaded.", { exact: false }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Save map", exact: true }).click();
+    page.getByRole("button", { name: "Connect a phone", exact: true }),
+  ).toBeDisabled();
   await expect(
-    page.getByText("All changes saved", { exact: true }),
+    page.getByText("This address only opens on this computer.", {
+      exact: false,
+    }),
   ).toBeVisible();
+  await expect(
+    page.getByAltText("QR code to connect a phone to this mapping session"),
+  ).toHaveCount(0);
+  // The circular map is test data only; it is never inserted by the product UI.
+  const initialProjects = await (
+    await page.request.get("/api/projects")
+  ).json();
+  const initialProject = await (
+    await page.request.get(`/api/projects/${initialProjects[0].id}`)
+  ).json();
+  expect(initialProject.map.nodes).toEqual([]);
+  expect(initialProject.map.buildings).toEqual([]);
+  const fixture = await page.request.put(
+    `/api/projects/${initialProject.id}/map`,
+    {
+      headers: { Origin: "http://127.0.0.1:4173" },
+      data: { version: 0, map: sampleMap() },
+    },
+  );
+  expect(fixture.status()).toBe(200);
+  await page.reload();
+  await page.getByRole("button", { name: /Riverdale Main Campus/ }).click();
   await page.getByLabel("Starting location").selectOption("gate");
   await page
     .getByRole("combobox", { name: "Destination", exact: true })

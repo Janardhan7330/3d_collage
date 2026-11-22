@@ -3,9 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       campus_file:
-        description: "Campus JSON path in this checkout; leave blank for the fictional demo. Use a private repository for private maps."
-        required: false
-        default: ""
+        description: "Your published campus JSON path in this checkout. Use a private repository for private maps."
+        required: true
       variant:
         description: "Debug for testing, release for your configured signing identity"
         type: choice

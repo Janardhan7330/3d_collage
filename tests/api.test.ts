@@ -235,6 +235,11 @@ test("pairing tokens are single use; device sessions are scoped and uploads idem
     mapper,
   );
   assert.equal(pair.status, 201);
+  assert.equal(
+    pair.body.url,
+    null,
+    "loopback addresses must never be encoded as phone links",
+  );
   const claim = await request(
     "/pair/claim",
     "POST",

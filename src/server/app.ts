@@ -4,6 +4,7 @@ import express, {
   type NextFunction,
 } from "express";
 import helmet from "helmet";
+import compression from "compression";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import { z } from "zod";
@@ -20,6 +21,7 @@ import {
   passwordHash,
   checkPassword,
 } from "./security";
+import { phoneConnection } from "../shared/phone-connection";
 import { emptyMap, mapSchema, validateMap } from "../shared/map";
 
 type User = { id: string; email: string; name: string };
@@ -119,7 +121,7 @@ export function createApp(db: DB, config: Config) {
   app.use("/api/pair", authLimit);
   const cookieOptions = {
     httpOnly: true,
-    secure: !!config.production,
+    secure: !!config.production || config.origin.startsWith("https://"),
     sameSite: "strict" as const,
     path: "/",
   };
@@ -174,7 +176,11 @@ export function createApp(db: DB, config: Config) {
 
   app.get("/api/health", async (_req, res) => {
     await db.all("SELECT 1");
-    res.json({ status: "ok", apkBuildsEnabled: !!config.buildsEnabled });
+    res.json({
+      status: "ok",
+      apkBuildsEnabled: !!config.buildsEnabled,
+      phoneConnection: phoneConnection(config.origin),
+    });
   });
   app.post("/api/auth/register", async (req, res) => {
     const input = credentials.extend({ name: label }).parse(req.body);
@@ -523,7 +529,9 @@ export function createApp(db: DB, config: Config) {
       id,
       token: raw,
       expiresAt: expires,
-      url: `${config.origin}/#pair=${raw}`,
+      url: phoneConnection(config.origin).available
+        ? `${config.origin}/#pair=${raw}`
+        : null,
     });
   });
   app.post("/api/pair/claim", async (req, res) => {
@@ -586,7 +594,9 @@ export function createApp(db: DB, config: Config) {
         id: s.id,
         token: raw,
         expiresAt: expires,
-        url: `${config.origin}/#pair=${raw}`,
+        url: phoneConnection(config.origin).available
+          ? `${config.origin}/#pair=${raw}`
+          : null,
       });
     },
   );
@@ -757,6 +767,8 @@ export function createApp(db: DB, config: Config) {
     next(new HttpError(404, "API endpoint not found.")),
   );
   if (config.webDir && existsSync(config.webDir)) {
+    // Static public assets only; authenticated API responses do not pass through this middleware.
+    app.use(compression());
     app.use(express.static(config.webDir, { index: false, maxAge: "1h" }));
     app.get("/{*path}", (_req, res) => {
       res.setHeader("Cache-Control", "no-cache");

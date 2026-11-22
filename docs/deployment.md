@@ -48,7 +48,7 @@ Use a surveyed campus with a circular block, multiple entrances and at least two
 
 ## GitHub delivery
 
-The repository contains automatic application/Android checks and a manual **Build campus APK** workflow. In GitHub, open Actions, select the APK workflow and choose Run workflow. Leave the campus file blank for the fictional demonstration, or supply a published campus JSON path within the checkout. Download the resulting APK from the run’s artifacts.
+The repository contains automatic application/Android checks and a manual **Build campus APK** workflow. In GitHub, open Actions, select the APK workflow and choose Run workflow. Supply your published campus JSON path within the checkout. The field is required; missing campus data never silently selects a fictional campus. Download the resulting APK from the run’s artifacts.
 
 Release builds require repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Keep ownership and backups of your signing key. This repository is public: never commit private campus maps, student information, passwords or keys.
 

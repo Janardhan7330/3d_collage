@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { sampleMap } from "../src/shared/map";
@@ -36,4 +37,14 @@ test("Android identifiers are stable and hostile branding remains XML text", () 
     "&quot;A&amp;B &lt;College&gt;&quot;",
   );
   assert.throws(() => androidIdentity("campus", -1));
+});
+
+test("APK preparation refuses missing campus data instead of inventing a campus", () => {
+  const result = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "scripts/prepare-android.ts"],
+    { encoding: "utf8" },
+  );
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Supply your published campus JSON file/);
 });

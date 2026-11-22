@@ -5,7 +5,11 @@ import { sampleMap } from "../src/shared/map";
 
 const file = process.argv[2];
 let input: unknown;
-if (!file || file === "--demo") {
+if (!file)
+  throw new Error(
+    "Supply your published campus JSON file. Fictional test data requires the explicit --demo flag.",
+  );
+if (file === "--demo") {
   const map = sampleMap();
   map.nodes.forEach((n) => (n.confirmed = true));
   map.edges.forEach((e) => (e.confirmed = true));
@@ -26,5 +30,5 @@ if (!file || file === "--demo") {
 }
 const identity = await prepareAndroidAssets(resolve("android"), input);
 console.log(
-  `Prepared ${identity.applicationId}, version ${identity.versionCode}. ${!file || file === "--demo" ? "Demonstration only." : "Use only at the verified campus."}`,
+  `Prepared ${identity.applicationId}, version ${identity.versionCode}. ${file === "--demo" ? "Demonstration only." : "Use only at the verified campus."}`,
 );
