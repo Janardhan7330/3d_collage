@@ -26,3 +26,11 @@ See [installed Android verification](deployment.md#installed-android-verificatio
 ## Not yet verified
 
 Physical Android installation, camera scans on supported phones, physical-device cold starts in airplane mode, surveyed indoor accuracy, large-campus performance, production mail delivery, production hosting and signing identity. Automatic indoor sensor positioning is not implemented. See [release status](production-status.md) for the full remaining scope.
+
+## Own-campus phone flow — 2026-11-23
+
+The studio now starts with an empty campus and has no sample-map insertion button. Localhost and insecure origins cannot advertise a phone QR URL. APK preparation requires an explicit campus file; fictional geometry is available only through the explicit test flag.
+
+Latest local checks: 30 unit/API tests, type checking, production bundles, and all three browser journeys pass. The phone journey now checks the complete capture → review → save flow and asserts that only the user-recorded location is added. A stale-GPS regression was reproduced before the fix: saving a named landmark discarded its outdated coordinates. Capture now requests a fresh reading before saving, reports manual placement when GPS remains unavailable, and preserves the typed name if device storage fails.
+
+`npm run phone` creates a temporary HTTPS preview and verifies public reachability before printing it. A tunnel remains dependent on the computer, its connection and the provider; it is not production hosting. Physical phone permission behavior and indoor accuracy still need on-site verification.

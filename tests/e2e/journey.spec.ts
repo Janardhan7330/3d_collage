@@ -165,6 +165,21 @@ test("paired mobile browser captures a landmark and uploads it before finishing"
     permissions: ["geolocation"],
     geolocation: { latitude: 12.97, longitude: 77.59, accuracy: 5 },
   });
+  await mobile.addInitScript(() => {
+    const watch = navigator.geolocation.watchPosition.bind(
+      navigator.geolocation,
+    );
+    navigator.geolocation.watchPosition = (success, error, options) =>
+      watch(
+        (position) =>
+          success({
+            coords: position.coords,
+            timestamp: Date.now() - 60000,
+          } as GeolocationPosition),
+        error,
+        options,
+      );
+  });
   const page = await mobile.newPage();
   await page.goto(`/#pair=${pair.token}`);
   await expect(
@@ -183,7 +198,7 @@ test("paired mobile browser captures a landmark and uploads it before finishing"
             `/api/projects/${project.id}/mapping/${pair.id}/samples`,
           )
         ).json()
-      ).events.some((e: any) => e.name === "Main gate"),
+      ).events.some((e: any) => e.name === "Main gate" && e.latitude === 12.97),
     )
     .toBe(true);
   await mobile.setOffline(true);
@@ -217,6 +232,33 @@ test("paired mobile browser captures a landmark and uploads it before finishing"
   await expect(
     page.getByRole("heading", { name: "Walk saved." }),
   ).toBeVisible();
+  const studio = await owner.newPage();
+  await studio.goto("/");
+  await studio.getByRole("button", { name: /Walk test/ }).click();
+  await studio
+    .getByRole("button", { name: "Mobile mapping", exact: true })
+    .click();
+  await studio
+    .getByRole("button", { name: "Review measurements", exact: true })
+    .click();
+  await studio
+    .locator(".sample-row")
+    .filter({ hasText: "Main gate" })
+    .getByRole("button", { name: "Import for review" })
+    .click();
+  await studio.getByRole("button", { name: "Save map", exact: true }).click();
+  await expect
+    .poll(async () =>
+      (
+        await (await owner.request.get(`/api/projects/${project.id}`)).json()
+      ).map.nodes.map((n: any) => n.name),
+    )
+    .toEqual(["Main gate"]);
+  const saved = await (
+    await owner.request.get(`/api/projects/${project.id}`)
+  ).json();
+  expect(saved.map.buildings).toEqual([]);
+  expect(saved.map.nodes[0].confirmed).toBe(false);
   await mobile.close();
   await owner.close();
 });

@@ -59,7 +59,8 @@ export function Capture({ pairToken }: { pairToken?: string }) {
     [gps, setGps] = useState<GeolocationCoordinates | null>(null),
     [status, setStatus] = useState("Ready to record"),
     [done, setDone] = useState(false),
-    [finishing, setFinishing] = useState(false);
+    [finishing, setFinishing] = useState(false),
+    [marking, setMarking] = useState(false);
   const recordingRef = useRef(false),
     sessionRef = useRef<any>(null),
     gpsRef = useRef<GeolocationCoordinates | null>(null),
@@ -68,7 +69,7 @@ export function Capture({ pairToken }: { pairToken?: string }) {
     flushing = useRef(false),
     stop = useRef<() => void>(() => {});
   const enqueue = async (data: Omit<Event, "id" | "timestamp">) => {
-    if (!sessionRef.current) return;
+    if (!sessionRef.current) return false;
     try {
       const event = {
         ...data,
@@ -78,6 +79,7 @@ export function Capture({ pairToken }: { pairToken?: string }) {
       } as Stored;
       await writeEvents([event]);
       setPending((await readEvents(sessionRef.current.id)).length);
+      return true;
     } catch {
       setError(
         "Local storage failed. Pause mapping to avoid losing measurements.",
@@ -85,6 +87,7 @@ export function Capture({ pairToken }: { pairToken?: string }) {
       recordingRef.current = false;
       setRecording(false);
       stop.current();
+      return false;
     }
   };
   async function flush() {
@@ -246,6 +249,56 @@ export function Capture({ pairToken }: { pairToken?: string }) {
     await enqueue({ type: "pause", floor: floorRef.current });
     await flush();
   }
+  async function markLocation(form: HTMLFormElement) {
+    if (marking || finishing) return;
+    const data = new FormData(form),
+      markedFloor = floorRef.current;
+    setMarking(true);
+    try {
+      let position =
+        Date.now() - gpsTimestamp.current <= 10000 ? gpsRef.current : null;
+      if (!position && navigator.geolocation && window.isSecureContext) {
+        setStatus("Getting a fresh location reading…");
+        position = await new Promise<GeolocationCoordinates | null>(
+          (resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              (reading) => {
+                gpsRef.current = reading.coords;
+                gpsTimestamp.current = reading.timestamp;
+                setGps(reading.coords);
+                resolve(reading.coords);
+              },
+              () => resolve(null),
+              { enableHighAccuracy: true, maximumAge: 1000, timeout: 8000 },
+            );
+          },
+        );
+      }
+      const saved = await enqueue({
+        type: "landmark",
+        name: String(data.get("name")),
+        nickname: String(data.get("nickname")),
+        floor: markedFloor,
+        ...(position
+          ? {
+              latitude: position.latitude,
+              longitude: position.longitude,
+              accuracy: position.accuracy,
+            }
+          : {}),
+      });
+      if (saved) {
+        form.reset();
+        setStatus(
+          position
+            ? "Location saved on this phone. Keep walking or mark another place."
+            : "Name saved without GPS. Place this location manually when reviewing the walk.",
+        );
+      }
+    } finally {
+      setMarking(false);
+    }
+  }
   async function finish() {
     if (finishing) return;
     setFinishing(true);
@@ -302,7 +355,7 @@ export function Capture({ pairToken }: { pairToken?: string }) {
         </div>
       )}
       {session && (
-        <fieldset disabled={finishing} className="capture-controls">
+        <fieldset disabled={finishing || marking} className="capture-controls">
           <div className="capture-status">
             <Radio className={recording ? "pulse" : ""} />
             <div>
@@ -359,25 +412,7 @@ export function Capture({ pairToken }: { pairToken?: string }) {
             className="panel"
             onSubmit={(e) => {
               e.preventDefault();
-              const form = e.currentTarget,
-                data = new FormData(form),
-                p =
-                  Date.now() - gpsTimestamp.current <= 10000
-                    ? gpsRef.current
-                    : null;
-              void enqueue({
-                type: "landmark",
-                name: String(data.get("name")),
-                nickname: String(data.get("nickname")),
-                floor: floorRef.current,
-                ...(p
-                  ? {
-                      latitude: p.latitude,
-                      longitude: p.longitude,
-                      accuracy: p.accuracy,
-                    }
-                  : {}),
-              }).then(() => form.reset());
+              void markLocation(e.currentTarget);
             }}
           >
             <h2>
@@ -400,7 +435,9 @@ export function Capture({ pairToken }: { pairToken?: string }) {
                 placeholder="e.g. CSE HOD"
               />
             </label>
-            <button className="secondary wide">Save location</button>
+            <button className="secondary wide">
+              {marking ? "Saving location…" : "Save location"}
+            </button>
           </form>
           <button className="text-button" onClick={() => void flush()}>
             Sync now
