@@ -1,0 +1,42 @@
+# Review hosting charges before applying this blueprint. Both plans are paid.
+services:
+  - type: web
+    name: 3d-college
+    runtime: docker
+    repo: https://github.com/Janardhan7330/3d_collage
+    branch: main
+    region: singapore
+    plan: 0.5c-512mb
+    dockerfilePath: ./Dockerfile
+    autoDeployTrigger: checksPass
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "3001"
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: APK_BUILDS_ENABLED
+        value: "false"
+      - key: APP_ORIGIN
+        fromService:
+          type: web
+          name: 3d-college
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: DATABASE_URL
+        fromDatabase:
+          name: 3d-college-db
+          property: connectionString
+
+databases:
+  - name: 3d-college-db
+    region: singapore
+    plan: 0.1c-256mb
+    postgresMajorVersion: "17"
+    databaseName: campus
+    user: campus
+    diskSizeGB: 5
+    ipAllowList: []

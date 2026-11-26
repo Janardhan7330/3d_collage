@@ -44,6 +44,7 @@ Keep the computer, command and phone page running during capture. The temporary 
 - [Verification evidence](docs/verification.md)
 - [Architecture](docs/architecture.md)
 - [Deployment and verification](docs/deployment.md)
+- [Permanent phone hosting proposal](docs/render-deployment.md)
 - [Production status and remaining work](docs/production-status.md)
 - [Original requirements tracker](docs/requirements.md)
 The imported conversation is kept locally and excluded from the public repository.
